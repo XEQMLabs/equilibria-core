@@ -81,3 +81,37 @@ Behavior-preserving on mainnet; lets testnet iterate.
 1. Build all platforms on CI (macOS Intel on `macmini-intel`).
 2. Run `testnet/hf22-multiop/` 20-operator stall/recovery cycles → confirm dedup + fallback + refill.
 3. Mixed old/new binary pass to confirm the Q5a fork-gate prevents a split.
+
+
+## QL — Lokinet enabled in HF22 (moved up from HF23; fork-gated + grace period)
+Rationale: bring the Lokinet dependency online earlier to support ARC (and HF23's proximity-aware
+quorum). NO hard code blocker — the Lokinet machinery is inherited from Oxen. It is a ROLLOUT problem:
+Lokinet is a SEPARATE daemon operators run alongside xeqm-d; xeqm-core only checks for its ping. It has
+NEVER run on XEQM mainnet (HAVE_LOKINET always false).
+
+Locked design decisions:
+- **Fork-gate the ENFORCEMENT on `hf22_sn_policy`** — do NOT rely on the HAVE_LOKINET bool alone: the
+  uptime check fires on binary install, BEFORE the fork, mass-decommissioning SNs during the upgrade
+  window. Gate these on `hf_version >= hf::hf22_sn_policy` (mirror the hf19 pattern already at
+  `service_node_quorum_cop.cpp:154`):
+  - `cryptonote_core.cpp:2684` — "won't submit uptime proof without a recent Lokinet ping".
+  - `service_node_list.cpp:5966` — min-Lokinet-version proof reject.
+  Then set mainnet `HAVE_LOKINET=true` (currently false — was reverted in Q3).
+- **Grace period** — at the fork, do NOT decommission for missing/unreachable Lokinet for N days (new
+  network_config constant), so operators who lag don't lose SNs (protects new/low-credit operators, same
+  concern as Option C). Enforce after grace.
+- Set/confirm the min Lokinet version in `service_node_rules.h`; **first produce + verify a working
+  Lokinet build for XEQM** (correct network id/ports/reachability) — it has never run on XEQM.
+
+Operator delivery (EVERY SN operator must run Lokinet before the fork or lose the SN — two paths):
+- **Installer path:** `~/xeqm-node-installer-script/` does NOT handle Lokinet today (verified). Add
+  Lokinet install+config to `install.sh`, open its ports in `firewall.sh`, and add a Lokinet
+  ping/reachability check to `doctor.sh`.
+- **Docker path (Dom to build) for non-installer operators:** the repo already has a `Dockerfile`.
+  Build a container bundling xeqm-d + Lokinet (+ config) so operators run a ready SN+Lokinet via
+  `docker run` with no manual setup.
+
+Validation + docs:
+- Testnet harness (`testnet/hf22-multiop/`) runs HAVE_LOKINET=false today; add a Lokinet-enabled testnet
+  profile + run Lokinet on the test SNs to exercise the gated uptime/version paths AND the grace period.
+- Update the whitepaper + defense.xeqmlabs.com (both currently say "HF22 has no Lokinet dependency").
