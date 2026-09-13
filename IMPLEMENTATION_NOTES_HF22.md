@@ -86,6 +86,8 @@ Behavior-preserving on mainnet; lets testnet iterate.
 ## QL — Lokinet enabled in HF22 (moved up from HF23; fork-gated + grace period)
 Rationale: bring the Lokinet dependency online earlier to support ARC (and HF23's proximity-aware
 quorum). NO hard code blocker — the Lokinet machinery is inherited from Oxen. It is a ROLLOUT problem:
+**This work is fork-agnostic — the same effort whether in HF22 or HF23; HF23 does not remove it. Doing it
+in HF22 means ONE coordinated operator rollout instead of two, and unblocks ARC sooner.**
 Lokinet is a SEPARATE daemon operators run alongside xeqm-d; xeqm-core only checks for its ping. It has
 NEVER run on XEQM mainnet (HAVE_LOKINET always false).
 
